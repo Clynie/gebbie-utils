@@ -7,6 +7,7 @@ classdef Freq < handle
     properties (SetAccess = private)
         fs      % sample rate (Hz)
         N       % fftsize
+        M       % number of bins in 'fr'
         band    % a 2-element vector of min/max frequencies (inclusive)
         
         full    % a N-by-1 vector of all frequencies
@@ -27,9 +28,8 @@ classdef Freq < handle
             % ensure the partial spectrum has the proper dimensions by
             % compressing to a M-by-Nch matrix
             S = size(part);
-            M = size(part, 1);
-            assert(M == length(o.fr));
-            part = reshape(part, M, []);
+            assert(o.M == length(o.fr));
+            part = reshape(part, o.M, []);
             
             % synthesize full spectrum
             f = fftsynth(part, o.fr(1), o.full);
@@ -80,14 +80,13 @@ classdef Freq < handle
             % ensure the partial spectrum has the proper dimensions by
             % compressing to a M-by-Nch matrix
             S = size(part);
-            M = size(part, 1);
-            assert(M == length(o.fr));
-            part = reshape(part, M, []);
+            assert(o.M == length(o.fr));
+            part = reshape(part, o.M, []);
             Nch = size(part, 2);
             
             % apply window function
             if wfn
-                part = part .* repmat(hanning(M), 1, Nch);
+                part = part .* repmat(hanning(o.M), 1, Nch);
             end
             
             % synthesize full spectrum
@@ -168,6 +167,8 @@ classdef Freq < handle
             o.mask = o.band(1) <= o.full & o.full <= o.band(2);
             % compute partial spectrum
             o.fr = o.full(o.mask);
+            % count frequency bins
+            o.M = length(o.fr);
         end
         
     end
