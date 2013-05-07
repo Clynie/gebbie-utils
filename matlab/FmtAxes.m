@@ -80,10 +80,20 @@ classdef FmtAxes < handle
             %   OUTPUTS
             %       hAxes       => handle to new axes
             
-            % if no arguments are passed in, create the first set of axes
             if nargin < 2
+                % if no arguments are passed in, create the first set of axes
                 myRows = 1;
                 myCols = 1;
+                
+            elseif nargin == 2 && ishandle(myRows)
+                % handle case if just a axes handle is passe din
+                hAxes = myRows;
+                myRows = 1;
+                myCols = 1;
+                
+            elseif nargin < 4
+                % if axes not specified, define the variable as empty
+                hAxes = [];
             end
             
             % move figure onto the main screen if not already docked
@@ -112,8 +122,8 @@ classdef FmtAxes < handle
                 o.fmtWnd = false;
             end
             
-            % create axes, if unspecified
-            if nargin < 4 || isempty(hAxes)
+            % create axes, if none passed in
+            if isempty(hAxes)
                 hAxes = axes();
             end
             
