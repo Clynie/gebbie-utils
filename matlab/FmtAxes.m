@@ -137,6 +137,46 @@ classdef FmtAxes < handle
     
     methods (Static)
         
+        function [] = print(filepath, dpi)
+            % Create an image file for the current figure.
+            %
+            %   INPUTS
+            %       o           => this object
+            %       filepath    => path to file to create. the extension
+            %                       determines the file type. (e.g. png)
+            %       dpi         => (optional) resolution, defaults to 150.
+            
+            if nargin < 2
+                dpi = [];
+            end
+            
+            % start building argument list, start with handle
+            args = { gcf };
+            
+            % use the file extenstion to determine the rendering engine
+            [~, ~, type] = fileparts(filepath);
+            type = lower(type(2:end)); % hack of period, and make LC
+            switch type
+                case ''
+                    type = 'png';
+                case 'jpg'
+                    type = 'jpeg';
+            end
+            args{end+1} = sprintf('-d%s', type);
+            
+            % append the resolution, if specified
+            if ~isempty(dpi)
+                args{end+1} = sprintf('-r%d', dpi);
+            end
+            
+            % append the filepath last
+            args{end+1} = filepath;
+            
+            % call print
+            print(args{:});
+            
+        end
+        
         function [] = set_fonts_presentation()
             FmtAxes.set_fonts('Arial', 16, 'normal');
         end
