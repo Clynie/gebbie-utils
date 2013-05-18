@@ -1,6 +1,8 @@
-function [zxy] = flip_over(zxy,boundary_z)
-for ii = 1:size(boundary_z,2)
-    z = zxy(:,1)-boundary_z(:,ii);
-    z = boundary_z(:,ii) - z;
-    zxy = [z zxy(:,2:3)];
+function [xyz] = flip_over(xyz, boundary_z)
+% Reflect points over XY planes at different points along the Z axis.
+
+for ii = 1:size(boundary_z, 2)
+    z = xyz(:, 3)-boundary_z(:, ii);
+    z = boundary_z(:, ii) - z;
+    xyz = [xyz(:, 1:2) z];
 end
