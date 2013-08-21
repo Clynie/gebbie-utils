@@ -37,7 +37,7 @@
 %
 %
 % Author: John Gebbie
-% Creation Date: Feb 7, 2012
+% Creation Date: 2012 Feb 07
 
 classdef LatLonXY < handle
     

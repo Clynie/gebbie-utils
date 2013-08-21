@@ -1,7 +1,9 @@
 % Helper class for creating a movie
 %
+% TODO: provide documentation
+%
 % Author: John Gebbie
-% Creation Date: Oct 23, 2012
+% Creation Date: 2012 Oct 23
 
 classdef MovieMaker < handle
     
@@ -44,6 +46,9 @@ classdef MovieMaker < handle
             N = length(frame_nums);
             if N > 0
                 o.frame_num = find(frame_nums ~= (1:N)',1,'first');
+                if isempty(o.frame_num)
+                    o.frame_num = N+1;
+                end
             else
                 o.frame_num = 1;
             end

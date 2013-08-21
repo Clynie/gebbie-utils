@@ -1,5 +1,5 @@
 function [CSDM,FR,NSAMP,FR_FULL] = Make_CSDMatrix(TSERIES,FS,FFTSIZE,...
-    FRMIN,FRMAX,WIND,OVERLAP,ZEROPAD)
+    FRMIN,FRMAX,WIND,OVERLAP,ZEROPAD,PREWHITEN)
 %MAKE_CSDMATRIX         Cross Spectral Density Matrix
 %
 %INPUT
@@ -17,6 +17,11 @@ function [CSDM,FR,NSAMP,FR_FULL] = Make_CSDMatrix(TSERIES,FS,FFTSIZE,...
 %           ZEROPAD ==> zero-pad the end of each buffer input to the FFT by
 %                       making the input buffer twice as large. This is an
 %                       option for passive fathometer CSDMs.
+%         PREWHITEN ==> pre-whiten the FFT output by setting the magnitudes
+%                       of each frequency bin to one while retaining the
+%                       complex phase.  Note that this will destroy the
+%                       relative and absolute power levels of the input
+%                       signals.
 %
 %OUTPUT
 %              CSDM ==> N-by-N-by-M CSDM where N is the number of channels
@@ -36,7 +41,8 @@ if ~exist('FRMIN','var') || isempty(FRMIN), FRMIN=0; end
 if ~exist('FRMAX','var') || isempty(FRMAX), FRMAX=FS/2; end
 if ~exist('WIND','var'), WIND='hanning'; end
 if ~exist('OVERLAP','var'), OVERLAP=.5; end
-if ~exist('ZEROPAD','var') || isempty(ZEROPAD), ZEROPAD=0; end
+if ~exist('ZEROPAD','var') || isempty(ZEROPAD), ZEROPAD=false; end
+if ~exist('PREWHITEN','var') || isempty(PREWHITEN), PREWHITEN=false; end
 
 if ZEROPAD, FFTSIZE_IN = 2*FFTSIZE; else FFTSIZE_IN = FFTSIZE; end
 
@@ -71,6 +77,9 @@ for m = intvl_start_indices
     fftin(:,1:FFTSIZE) = fftin(:,1:FFTSIZE).*timewindfcn; % apply time window
     % apply time window, and FFT each channel separately
     fftout(:) = fft(fftin,[],2);
+    if PREWHITEN
+        fftout = fftout ./ abs(fftout);
+    end
     % calcualte CSDM for each bin separately
     for n = 1:length(FR)
         p(:) = fftout(:,n+frmin_ix-1); % data values for each array element

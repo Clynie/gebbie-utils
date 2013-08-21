@@ -68,17 +68,16 @@ classdef FmtAxes < handle
     methods
         
         function [hAxes] = fmt(o, myRows, myCols, hAxes)
-            % FMT Setup axes at exact place on the current figure.
+            % Setup axes at exact place on the current figure.
             %
-            %   INPUTS
-            %       o           => this object
-            %       myRows      => vector of row numbers to span
-            %       myCols      => vector of column numbers to span
-            %       hAxes       => existing axes to modify (optional, will
-            %                       create new axes if unspecified)
+            % INPUT myRows : vector of row numbers to span
             %
-            %   OUTPUTS
-            %       hAxes       => handle to new axes
+            % INPUT myCols : vector of column numbers to span
+            %
+            % INPUT hAxes : existing axes to modify (optional, will create
+            % new axes if unspecified)
+            %
+            % OUTPUT hAxes : handle to new axes
             
             if nargin < 2
                 % if no arguments are passed in, create the first set of axes
@@ -143,6 +142,29 @@ classdef FmtAxes < handle
             % put the axes in the calculated place.
             set(hAxes, 'Position', [leftPos bottomPos axesWidth axesHeight]);
         end
+        
+        
+        function [] = set_jasa_width(o, num_cols)
+            % Sets the 'width' property for a figure to be included in a
+            % JASA article.
+            %
+            % INPUT num_cols : number of columns to span (1 or 2)
+            
+            if nargin < 2
+                num_cols = 1;
+            end
+            
+            JASA_PAGE_WIDTH = 8+1/2;
+            JASA_MARGIN_SIDE = 3/4;
+            JASA_COL_WIDTH = 4+1/8 - JASA_MARGIN_SIDE;
+            
+            if num_cols == 1
+                o.width = JASA_COL_WIDTH;
+            else
+                o.width = JASA_PAGE_WIDTH - 2*JASA_MARGIN_SIDE;
+            end
+        end
+        
     end
     
     methods (Static)
@@ -150,11 +172,10 @@ classdef FmtAxes < handle
         function [] = print(filepath, dpi)
             % Create an image file for the current figure.
             %
-            %   INPUTS
-            %       o           => this object
-            %       filepath    => path to file to create. the extension
-            %                       determines the file type. (e.g. png)
-            %       dpi         => (optional) resolution, defaults to 150.
+            % INPUT filepath : path to file to create. the extension
+            % determines the file type. (e.g. png)
+            %
+            % INPUT dpi : (optional) resolution, defaults to 150.
             
             if nargin < 2
                 dpi = [];
@@ -165,7 +186,7 @@ classdef FmtAxes < handle
             
             % use the file extenstion to determine the rendering engine
             [~, ~, type] = fileparts(filepath);
-            type = lower(type(2:end)); % hack of period, and make LC
+            type = lower(type(2:end)); % hack off period, and make LC
             switch type
                 case ''
                     type = 'png';
@@ -188,30 +209,55 @@ classdef FmtAxes < handle
         end
         
         function [] = set_fonts_presentation()
-            FmtAxes.set_fonts('Arial', 16, 'normal');
+            FmtAxes.set_fonts(gcf, 'Arial', 16, 'normal');
         end
         
-        function [] = set_fonts_document()
-            FmtAxes.set_fonts('Times New Roman', 12, 'normal');
-        end
-        
-        function [] = set_fonts(font_name, font_size, font_weight)
-            h = findall(gcf);
-            for n = 1:length(h)
+        function [] = set_fonts(fig, font, size, weight, units)
+            
+            if nargin < 1 || isempty(fig)
+                fig = gcf;
+            end
+            if nargin < 2 || isempty(font)
+                font = 'Times New Roman';
+            end
+            if nargin < 3 || isempty(size)
+                size = 9;
+            end
+            if nargin < 4 || isempty(weight)
+                weight = 'normal';
+                % options: [ light | {normal} | demi | bold ]
+            end
+            if nargin < 5 || isempty(units)
+                units = 'points';
+                % options: [ inches | centimeters | normalized | {points} | pixels ]
+            end
+            
+            handles = findall(fig);
+            for n = 1:length(handles)
+                
                 try
-                    set(h(n), 'FontName', font_name);
+                    set(handles(n), 'FontName', font);
                 catch e %#ok
                 end
+                
                 try
-                    set(h(n), 'FontSize', font_size);
+                    set(handles(n), 'FontUnits', units);
                 catch e %#ok
                 end
+                
                 try
-                    set(h(n), 'FontWeight', font_weight);
+                    set(handles(n), 'FontSize', size);
                 catch e %#ok
                 end
+                
+                try
+                    set(handles(n), 'FontWeight', weight);
+                catch e %#ok
+                end
+                
             end
         end
+        
         
     end
 end

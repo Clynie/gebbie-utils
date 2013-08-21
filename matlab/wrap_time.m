@@ -1,6 +1,6 @@
 function [time,signal] = wrap_time(time,signal)
 N = length(time);
-S = ceil(N/2);
+S = ceil((N+1)/2);
 T = ( time(end)-time(1) ) / (N-1) * N;
 time(S:N) = time(S:N)-T;
 timemask = [S:N 1:S-1];
