@@ -48,7 +48,7 @@ if ~exist('PREWHITEN','var') || isempty(PREWHITEN), PREWHITEN=false; end
 
 if isnumeric(ZEROPAD) && ZEROPAD > 1
     FFTSIZE_IN = ZEROPAD;
-elseif ZERPAD
+elseif ZEROPAD
     FFTSIZE_IN = 2*FFTSIZE;
 else
     FFTSIZE_IN = FFTSIZE;
