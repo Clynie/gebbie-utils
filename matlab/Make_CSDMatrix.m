@@ -15,8 +15,10 @@ function [CSDM,FR,NSAMP,FR_FULL] = Make_CSDMatrix(TSERIES,FS,FFTSIZE,...
 %           OVERLAP ==> fractional overlap of each time interval. If not
 %                       specified, or specified as [], defaults to .5.
 %           ZEROPAD ==> zero-pad the end of each buffer input to the FFT by
-%                       making the input buffer twice as large. This is an
-%                       option for passive fathometer CSDMs.
+%                       padding the input buffer. If is a boolean set to
+%                       true, pads by twice the size. If a positive integer
+%                       greater than one, pads to that exact number of
+%                       samples.
 %         PREWHITEN ==> pre-whiten the FFT output by setting the magnitudes
 %                       of each frequency bin to one while retaining the
 %                       complex phase.  Note that this will destroy the
@@ -44,7 +46,13 @@ if ~exist('OVERLAP','var'), OVERLAP=.5; end
 if ~exist('ZEROPAD','var') || isempty(ZEROPAD), ZEROPAD=false; end
 if ~exist('PREWHITEN','var') || isempty(PREWHITEN), PREWHITEN=false; end
 
-if ZEROPAD, FFTSIZE_IN = 2*FFTSIZE; else FFTSIZE_IN = FFTSIZE; end
+if isnumeric(ZEROPAD) && ZEROPAD > 1
+    FFTSIZE_IN = ZEROPAD;
+elseif ZERPAD
+    FFTSIZE_IN = 2*FFTSIZE;
+else
+    FFTSIZE_IN = FFTSIZE;
+end
 
 % the frequencies of each bin of the DFT output
 FR_FULL = fftinfo(FS,FFTSIZE_IN,true);
