@@ -16,7 +16,7 @@ classdef MirrorMirror < handle
     % clc;
     %
     % o = MirrorMirror();
-    % o.seabed_depth = 12;
+    % o.seabed_z = 12;
     % o.seabed_c = 1650;
     % o.seabed_rho = 1.9;
     % o.target_xyz = [100, 100, 0]/sqrt(2);
@@ -25,7 +25,7 @@ classdef MirrorMirror < handle
     % rcv_x = rcv_x - mean(rcv_x);
     % Nr = length(rcv_x);
     % o.receivers_xyz = [rcv_x(:), zeros(Nr, 1), ...
-    %     repmat(-o.seabed_depth, Nr, 1)];
+    %     repmat(-o.seabed_z, Nr, 1)];
     % o.bounce_count_thresh = 10;
     %
     % %%%% image finding
@@ -76,14 +76,14 @@ classdef MirrorMirror < handle
         freq                            % Frequencies
         
         % ENVIRONMENT
-        air_depth = 0                   % Depth of air (m) (defined as 0)
+        air_z = 0                       % Depth of air (m) (defined as 0)
         air_c = 343.21                  % Sound speed in air (m/s)
         air_rho = 1.2041e-3             % Density of air (g/cm^3)
-        water_depth = 0                 % Depth of water layer (m)
+        water_z = 0                     % Depth of water layer (m)
         water_c = 1500                  % Sound speed in water (m/s)
         water_rho = 1                   % Density of water (g/cm^3)
         water_alpha = 1.00143834046906e-4 % Attenuation of water (dB/lambda)
-        seabed_depth = NaN              % Depth of seabed layer (m)
+        seabed_z = NaN                  % Depth of seabed layer (m)
         seabed_c = 1800                 % Sound speed in seabed (m/s)
         seabed_rho = 2                  % Density of seabed (g/cm^3)
         seabed_alpha = 0.88             % Attenuation of seabed (dB/lambda)
@@ -278,12 +278,12 @@ classdef MirrorMirror < handle
             o.images_rcoeff(1, :) = ones(1, o.get_nelt());
             o.images_breadcrumb{1, 1} = '';
             
-            reflect_surface = o.target_xyz(3) ~= -o.water_depth;
+            reflect_surface = o.target_xyz(3) ~= -o.water_z;
             if reflect_surface
                 o.generate_all_images_helper(o.BREADCRUMB_SURFACE);
             end
             
-            reflect_seabed = o.target_xyz(3) ~= -o.seabed_depth;
+            reflect_seabed = o.target_xyz(3) ~= -o.seabed_z;
             if reflect_seabed
                 o.generate_all_images_helper(o.BREADCRUMB_BOTTOM);
             end
@@ -324,11 +324,11 @@ classdef MirrorMirror < handle
                 % next image coordinates
                 switch bndry
                     case o.BREADCRUMB_SURFACE
-                        boundary_z = -o.water_depth;
+                        boundary_z = -o.water_z;
                         nbnc_s = nbnc_s + 1;
                         bndry = o.BREADCRUMB_BOTTOM;
                     case o.BREADCRUMB_BOTTOM
-                        boundary_z = -o.seabed_depth;
+                        boundary_z = -o.seabed_z;
                         nbnc_b = nbnc_b + 1;
                         bndry = o.BREADCRUMB_SURFACE;
                 end
