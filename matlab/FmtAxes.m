@@ -63,6 +63,11 @@ classdef FmtAxes < handle
         % axes are created and will automatically switch to false after to
         % speed up plotting.
         fmtWnd        = true
+        
+        % graphics object to place new axes relative to. defaults to the
+        % figure itself. useful for placing relative to another axes in the
+        % figure.
+        relative_objs  = []
     end
     
     methods
@@ -139,8 +144,55 @@ classdef FmtAxes < handle
             leftPos         = o.left   + (min(myCols)-1)      *(colWidth +o.col);
             bottomPos       = o.bottom + (o.nRows-max(myRows))*(rowHeight+o.row);
             
+            if ~isempty(o.relative_objs)
+                
+                opos = nan(length(o.relative_objs),4);
+                for n = 1:length(o.relative_objs)
+                    ro = o.relative_objs(n);
+                    ru = get(ro, 'Units');
+                    set(ro, 'Units', 'Normalized');
+                    opos1 = get(ro, 'Position');
+                    set(ro, 'Units', ru);
+                    assert(length(opos1) == 4);
+                    opos(n,:) = opos1;
+                end
+                
+                oxLL = opos(:,1);
+                oyLL = opos(:,2);
+                oxUR = oxLL + opos(:,3);
+                oyUR = oyLL + opos(:,4);
+                ox = [min(oxLL) max(oxUR)];
+                oy = [min(oyLL) max(oyUR)];
+                
+                x = [0; axesWidth] + leftPos;
+                y = [0; axesHeight] + bottomPos;
+                x = x .* diff(ox) + ox(1);
+                y = y .* diff(oy) + oy(1);
+                
+                leftPos = x(1);
+                bottomPos = y(1);
+                axesWidth = diff(x);
+                axesHeight = diff(y);
+                
+            end
+            
             % put the axes in the calculated place.
             set(hAxes, 'Position', [leftPos bottomPos axesWidth axesHeight]);
+        end
+        
+        
+        function [fmt] = duplicate(o)
+            % Create duplicate of this class, but using a different handle.
+            % Use this to create a copy such that the original object is
+            % kept separate and unmodified.
+            %
+            % OUTPUT fmt : a new FmtAxes object.
+            
+            fmt = FmtAxes();
+            fns = properties(o);
+            for ix = 1:length(fns)
+                fmt.(fns{ix}) = o.(fns{ix});
+            end
         end
         
         
@@ -209,7 +261,11 @@ classdef FmtAxes < handle
         end
         
         function [] = set_fonts_presentation()
-            FmtAxes.set_fonts(gcf, 'Arial', 16, 'normal');
+            FmtAxes.set_fonts('Arial', 16, 'normal');
+        end
+        
+        function [] = set_fonts_document()
+            FmtAxes.set_fonts('Times New Roman', 12, 'normal');
         end
         
         function [] = set_fonts(fig, font, size, weight, units)
