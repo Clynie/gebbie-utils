@@ -1,5 +1,6 @@
 function [xi, yi] = gradient_descent(x, y, Z, xi, yi)
-% Simple gradient descent routine for finding local minima.
+% Simple gradient descent routine for finding local minima using gridded
+% data.
 %
 % INPUT x : uniformly spaced x-axis (Nx elements)
 %
