@@ -190,7 +190,7 @@ classdef Freq < handle
             
             snap_idx = floor(1 : o.N*(1-overlap) : numel(y)-o.N+1).';
             t = (snap_idx-1)/o.fs;  % time axis
-
+            
             P = length(snap_idx);
             idx = repmat(snap_idx, 1, o.N) + repmat((0:o.N-1), P, 1);
             s = nan(size(idx));
@@ -203,6 +203,22 @@ classdef Freq < handle
             if nargout == 0
                 imagesc(o.fr, t, 20*log10(abs(s)));
             end
+        end
+        
+        function [p] = power_spectra(o, x, overlap_frac, wind_fcn)
+            p = zeros(o.M,1);
+            L = length(x);
+            skip = o.N*(1-overlap_frac);
+            idx = round(1:skip:(L-o.N+1));
+            wind_fcn = wind_fcn ./ sqrt(mean(wind_fcn.^2));
+            for ix = 1:length(idx)
+                tmp = x((0:o.N-1) + idx(ix));
+                tmp = tmp .* wind_fcn;
+                tmp = fft(tmp);
+                p = p + abs(tmp(o.mask)).^2;
+            end
+            p = p ./ length(idx); % average
+            p = p ./ (o.fs*o.N); % power/Hz
         end
         
     end
