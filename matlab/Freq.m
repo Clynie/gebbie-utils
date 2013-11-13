@@ -84,7 +84,7 @@ classdef Freq < handle
             assert(o.M == length(o.fr));
             assert(o.M == S(1));
             part = reshape(part, o.M, []);
-            Nch = S(2);
+            Nch = size(part,2);
             
             % apply window function
             if wfn
