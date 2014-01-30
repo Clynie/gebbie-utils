@@ -261,11 +261,11 @@ classdef FmtAxes < handle
         end
         
         function [] = set_fonts_presentation()
-            FmtAxes.set_fonts('Arial', 16, 'normal');
+            FmtAxes.set_fonts([], 'Arial', 16, 'normal');
         end
         
         function [] = set_fonts_document()
-            FmtAxes.set_fonts('Times New Roman', 12, 'normal');
+            FmtAxes.set_fonts([], 'Times New Roman', 12, 'normal');
         end
         
         function [] = set_fonts(fig, font, size, weight, units)
