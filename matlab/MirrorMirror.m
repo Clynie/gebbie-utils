@@ -3,7 +3,7 @@ classdef MirrorMirror < handle
     % medium based on the image method.  The workflow of this class is
     % broken into phases: image finding, image filtering, and rendering.
     % image finding is done with the generate_all_images() method which
-    % recursively finds images based on the target-receiver geometry and
+    % recursively finds images based on the source-receiver geometry and
     % environment.  image filtering provides a means of changing which
     % eigenrays to include in the final rendered output.  the rendering
     % phase converts the retained images into a transfer function (complex
@@ -14,53 +14,59 @@ classdef MirrorMirror < handle
     %
     % clear
     % clc
-    % 
+    %
     % mm = MirrorMirror();                                % instantiate
-    % 
+    %
     % mm.seabed_z = -12;                                  % environment
     % mm.seabed_c = 1550;
-    % mm.seabed_rho = 1.8;
-    % 
-    % mm.target_xyz = [100, 100, 0]/sqrt(2);              % target
-    % 
+    % mm.seabed_rho = 1.2;
+    %
+    % mm.sources_xyz = [ ...                              % sources
+    %     100,  100, 0 ; ...
+    %     -30,  100, 0 ; ...
+    %     -100, -20, 0 ; ...
+    %     10, -200,  0 ];
+    %
     % rcv_x = [ 0 11 ];                                   % receivers
     % rcv_x = rcv_x - mean(rcv_x);
     % Nr = length(rcv_x);
-    % mm.receivers_xyz = [rcv_x(:), zeros(Nr, 1), repmat(mm.seabed_z, Nr, 1)];
-    % mm.bounce_count_thresh = 10;
-    % 
+    % mm.receivers_xyz = [rcv_x(:), zeros(Nr, 1), ...
+    %     repmat(mm.seabed_z, Nr, 1)];
+    %
+    % mm.bounce_count_thresh = 10;                        % stop cond.
+    %
     % %%%% image finding
-    % 
+    %
     % mm.generate_all_images();
-    % 
+    %
     % %%%% image filtering
-    % 
+    %
     % mm.retain_image_indices(...
     %     mm.breadcrumb_to_image_indices('', 'bs', 'bsbs'));
-    % 
+    %
     % %%%% rendering
-    % 
+    %
     % fs = 1e6;                                           % sample freq
     % T_max = 2.5*max(mm.images_dist(:))/mm.water_c;      % time axis ext.
     % freq = Freq.newByTime(fs, T_max, [eps 3000]);       % frequencies
-    % 
+    %
     % G = mm.get_transfer_function(freq.fr);              % xfer fcn.
-    % [g, t_g] = freq.synthTime(G(:,1), ...               % impulse resp.
+    % [g, t_g] = freq.synthTime(G(:,1,1), ...             % impulse resp.
     %     false, false, true);
-    % 
+    %
     % figure(1); clf;
     % plot(t_g*mm.water_c, g);                            % plot imp. resp
     % title('impulse response');
     % xlabel('wave travel distance (m)');
-    % 
+    %
     % K = mm.get_clairvoyant_csdm(freq.fr);               % build CSDM
-    % S = squeeze(K(1,2,:));
+    % S = squeeze(K(1,2,:,1));
     % [s, t_s] = freq.synthTime(S, true, false, true);    % xcorr t/series
-    % 
+    %
     % figure(2); clf;
     % plot(t_s*mm.water_c, s);                            % plot xcorr t/s.
     % xlim(3*diff(rcv_x)*[-1 1]);
-    % set(gca, 'xtick', [-1 1]*diff(rcv_x));
+    % set(gca, 'xtick', [-1 0 1]*diff(rcv_x));
     % set(gca, 'xgrid', 'on');
     % title('cross correlation time series');
     % xlabel('wave travel distance (m)');
@@ -74,7 +80,7 @@ classdef MirrorMirror < handle
     properties
         
         % GEOMETRY
-        target_xyz                      % Target coordinates (1-by-3)
+        sources_xyz                     % Target coordinates (1-by-3)
         receivers_xyz                   % Receiver coordinates (N-by-3)
         
         % OUTPUT
@@ -107,12 +113,12 @@ classdef MirrorMirror < handle
         BREADCRUMB_BOTTOM = 'b'
         
         % populated by generate_all_images()
-        images_xyz
-        images_dist
-        images_vec
-        images_grz_ang_r
-        images_rcoeff
-        images_breadcrumb
+        images_xyz                      % I-by-S-by-3
+        images_dist                     % I-by-R-by-S
+        images_vec                      % I-by-R-by-S-by-3
+        images_grz_ang_r                % I-by-R-by-S
+        images_rcoeff                   % I-by-R-by-S
+        images_breadcrumb               % I-by-1 (cell)
         
     end
     
@@ -142,17 +148,20 @@ classdef MirrorMirror < handle
             %
             % OUTPUT
             %
-            %   K - The CSDM for each frequency.  This is a N-by-N-by-M
-            %   matrix in which N is the number of elements and M is the
-            %   number of requested frequencies.
+            %   K - The CSDM for each frequency.  This is a
+            %   R-by-R-by-F-by-S matrix in which R is the number of
+            %   elements and F is the number of requested frequencies, and
+            %   S is the number of sources
             if nargin <= 2
                 image_indices = 1:o.get_nimg();
             end
             T = o.get_transfer_function(freq, image_indices);
-            K = nan(o.get_nelt(), o.get_nelt(), numel(freq));
+            K = nan(o.get_nelt(), o.get_nelt(), numel(freq), o.get_nsrc());
             for nf = 1:numel(freq)
-                tf = T(nf, :).';
-                K(:,:,nf) = tf*tf';
+                for ns = 1:o.get_nsrc()
+                    tf = T(nf, :, ns).';
+                    K(:,:,nf,ns) = tf*tf';
+                end
             end
         end
         
@@ -197,7 +206,7 @@ classdef MirrorMirror < handle
         end
         
         function [T] = get_transfer_function(o, freq, image_indices)
-            % returns the transfer function for the current set of images.
+            % Transfer function for the current set of images.
             %
             % INPUTS
             %
@@ -208,18 +217,21 @@ classdef MirrorMirror < handle
             % OUTPUTS
             %
             %   T - the transfer function computed as a sum of all ray
-            %   arrivals based on the superposition principle. an M-by-N
-            %   matrix in which M is the number of frequencies and N is the
-            %   number of receivers. see Freq.synthTime
+            %   arrivals based on the superposition principle. an
+            %   F-by-R-by-S matrix in which F is the number of frequencies,
+            %   R is the number of receivers, and S is the number of
+            %   sources. see Freq.synthTime
             if nargin <= 2
                 image_indices = 1:o.get_nimg();
             end
-            T = zeros(numel(freq), o.get_nelt());
+            T = zeros(numel(freq), o.get_nelt(), o.get_nsrc());
             minus_ik = (-1i*2*pi./o.water_c)*freq(:);
+            minus_ik = repmat(minus_ik, 1, o.get_nelt(), o.get_nsrc());
             for n = image_indices
-                R = o.images_rcoeff(n, :) ./ o.images_dist(n, :);
-                R = repmat(R, numel(freq), 1);
-                T = T + R.*exp(minus_ik*o.images_dist(n, :));
+                R = o.images_rcoeff(n, :, :) ./ o.images_dist(n, :, :);
+                R = repmat(R, numel(freq), 1, 1);
+                D = repmat(o.images_dist(n, :, :), numel(freq), 1, 1);
+                T = T + R.*exp(minus_ik.*D);
             end
         end
         
@@ -260,35 +272,35 @@ classdef MirrorMirror < handle
             %
             %   image_indices - a list of indices to retain. all indices
             %   must exist.
-            o.images_xyz = o.images_xyz(image_indices, :);
-            o.images_dist = o.images_dist(image_indices, :);
-            o.images_vec = o.images_vec(:, :, image_indices);
-            o.images_grz_ang_r = o.images_grz_ang_r(image_indices, :);
-            o.images_rcoeff = o.images_rcoeff(image_indices, :);
-            o.images_breadcrumb = o.images_breadcrumb(image_indices, :);
+            o.images_xyz = o.images_xyz(image_indices, :, :);
+            o.images_dist = o.images_dist(image_indices, :, :);
+            o.images_vec = o.images_vec(image_indices, :, :, :);
+            o.images_grz_ang_r = o.images_grz_ang_r(image_indices, :, :);
+            o.images_rcoeff = o.images_rcoeff(image_indices, :, :);
+            o.images_breadcrumb = o.images_breadcrumb(image_indices, 1);
         end
         
         function [] = generate_all_images(o)
             % image generation.  compute the images (eigenrays) based on
-            % the environment and target-receiver geometry.  the latter is
+            % the environment and source-receiver geometry.  the latter is
             % specified in properties of this object.  when this function
             % completes, get_transfer_function() and get_clairvoyant_csdm()
             % methods can be called.
             
-            % init with target
-            o.images_xyz(1, :) = o.target_xyz;
-            o.images_dist(1, :) = o.get_dist(o.target_xyz);
-            o.images_vec(:, :, 1) = o.get_vec(o.target_xyz);
-            o.images_grz_ang_r(1, :) = NaN(1, o.get_nelt());
-            o.images_rcoeff(1, :) = ones(1, o.get_nelt());
-            o.images_breadcrumb{1, 1} = '';
+            % init with source
+            o.images_xyz(1, :, :) = o.sources_xyz;
+            o.images_dist(1, :, :) = o.get_dist(o.sources_xyz);
+            o.images_vec(1, :, :, :) = o.get_vec(o.sources_xyz);
+            o.images_grz_ang_r(1, :, :) = NaN(o.get_nelt(), o.get_nsrc());
+            o.images_rcoeff(1, :, :) = ones(o.get_nelt(), o.get_nsrc());
+            o.images_breadcrumb{1, 1, 1} = '';
             
-            reflect_surface = o.target_xyz(3) ~= o.water_z;
+            reflect_surface = any(o.sources_xyz(:,3) ~= o.water_z);
             if reflect_surface
                 o.generate_all_images_helper(o.BREADCRUMB_SURFACE);
             end
             
-            reflect_seabed = o.target_xyz(3) ~= o.seabed_z;
+            reflect_seabed = any(o.sources_xyz(:,3) ~= o.seabed_z);
             if reflect_seabed
                 o.generate_all_images_helper(o.BREADCRUMB_BOTTOM);
             end
@@ -297,7 +309,7 @@ classdef MirrorMirror < handle
         
         function [] = generate_all_images_helper(o, bndry)
             % helper function for generate_all_images(). start recursing by
-            % reflecting target over boundary.
+            % reflecting source over boundary.
             
             % validate stopping conditions
             isnneg = @(x) isfinite(x) && 0 <= x;
@@ -307,13 +319,13 @@ classdef MirrorMirror < handle
                 'invalid stopping conditions' );
             
             % prior state
-            last_xyz = o.target_xyz;
+            last_xyz = o.sources_xyz;
             last_bc = '';
             nbnc_s = 0;         % number of surface bounces
             nbnc_b = 0;         % number of bottom bounces
             
             % calculations that can be performed outside loop
-            D_direct = o.get_dist(o.target_xyz);
+            D_direct = o.get_dist(o.sources_xyz);
             spreading_loss_dir_dB = 20*log10(D_direct);
             
             while true
@@ -351,19 +363,19 @@ classdef MirrorMirror < handle
                 
                 % receiver to image vector
                 vec = o.get_vec(curr_xyz);
-                D_multipath = sqrt(sum(vec.^2, 2));
+                D_multipath = sqrt(sum(vec.^2, 3));
                 
                 % check if we've reached the time lag threshold
                 if isfinite(o.time_lag_thresh)
                     lag = D_multipath / o.water_c;
-                    if all(lag > o.time_lag_thresh)
+                    if all(lag(:) > o.time_lag_thresh)
                         break;
                     end
                 end
                 
                 % grazing angle (same for all boundaries)
-                grz_ang_r = abs(atan2(vec(:, 3), ...
-                    sqrt(sum(vec(:, 1:2).^2, 2))));
+                grz_ang_r = abs(atan2(vec(:, :, 3), ...
+                    sqrt(sum(vec(:, :, 1:2).^2, 3))));
                 
                 % cumulative reflection coefficient for current ray
                 curr_rc = 1;
@@ -383,17 +395,18 @@ classdef MirrorMirror < handle
                     spreading_loss_rel_dB = ...
                         spreading_loss_dB - spreading_loss_dir_dB + ...
                         reflection_loss_dB;
-                    if all(spreading_loss_rel_dB > o.attenuation_thresh_dB)
+                    if all(spreading_loss_rel_dB(:) > ...
+                            o.attenuation_thresh_dB(:))
                         break;
                     end
                 end
                 
                 % save the image info for this loop iteration
-                o.images_xyz(end+1, :) = curr_xyz;
-                o.images_dist(end+1, :) = D_multipath;
-                o.images_vec(:, :, end+1) = vec;
-                o.images_grz_ang_r(end+1, :) = grz_ang_r;
-                o.images_rcoeff(end+1, :) = curr_rc;
+                o.images_xyz(end+1, :, :) = curr_xyz;
+                o.images_dist(end+1, :, :) = D_multipath;
+                o.images_vec(end+1, :, :, :) = vec;
+                o.images_grz_ang_r(end+1, :, :) = grz_ang_r;
+                o.images_rcoeff(end+1, :, :) = curr_rc;
                 o.images_breadcrumb{end+1, 1} = curr_bc;
                 
                 % setup for next iteration through the loop
@@ -408,57 +421,65 @@ classdef MirrorMirror < handle
             Ne = size(o.receivers_xyz, 1);
         end
         
+        function [Ne] = get_nsrc(o)
+            % return the number of receivers
+            Ne = size(o.sources_xyz, 1);
+        end
+        
         function [Ni] = get_nimg(o)
             % return the number of images
             Ni = size(o.images_xyz, 1);
         end
         
-        function [vec_xyz] = get_vec(o, pt_xyz)
+        function [vec_xyz] = get_vec(o, pts_xyz)
             % returns the vector with head at each receiver and tail at the
             % specified input point.
             %
             % INPUTS
             %
-            %   pt_xyz - a point in space. a 1-by-3 matrix of cartesian
-            %   coordinates
+            %   pts_xyz - a point in space. an P-by-3 matrix of cartesian
+            %   coordinates in which P is the number of points.
             %
             % OUTPUTS
             %
-            %   dist_m - a M-by-1 vector of distances (in meters) between
-            %   the point and each M receivers.
-            vec_xyz = o.receivers_xyz - repmat(pt_xyz, o.get_nelt(), 1);
+            %   vec_xyz - a R-by-P-by-3 vector of distances (in meters)
+            %   between the P points and each R receivers.
+            P = size(pts_xyz,1);
+            R = o.get_nelt();
+            t1 = repmat(permute(o.receivers_xyz,[1 3 2]),1,P,1);
+            t2 = repmat(permute(pts_xyz,[3 1 2]),R,1,1);
+            vec_xyz = t1 - t2;
         end
         
-        function [dist_m] = get_dist(o, pt_xyz)
+        function [dist_m] = get_dist(o, pts_xyz)
             % returns the distance between the point and the receivers
             %
             % INPUTS
             %
-            %   pt_xyz - a point in space. a 1-by-3 matrix of cartesian
-            %   coordinates
+            %   pts_xyz - see get_vec()
             %
             % OUTPUTS
             %
-            %   dist_m - a M-by-1 vector of distances (in meters) between
-            %   the point and each M receivers.
-            dist_m = sqrt(sum(o.get_vec(pt_xyz).^2, 2));
+            %   dist_m - a R-by-P vector of distances (in meters) between
+            %   the P points and each R receivers.
+            dist_m = sqrt(sum(o.get_vec(pts_xyz).^2, 3));
         end
         
-        function [img_xyz] = get_image(o, pt_xyz, boundary_z) %#ok
-            % returns the image of pt_xyz after it is reflected over
+        function [img_xyz] = get_image(o, pts_xyz, boundary_z) %#ok
+            % returns the image of pts_xyz after it is reflected over
             % boundary_z.
             %
             % INPUTS
             %
-            %   pt_xyz - see get_dist()
+            %   pts_xyz - see get_vec()
             %
             %   boundary_z - the z coordinate of the boundary to reflect
             %   over
             %
             % OTUPUTS
             %
-            %   img_xyz - a 1-by-3 vector of the image coordinates
-            img_xyz = pt_xyz;
+            %   img_xyz - a P-by-3 vector of the image coordinates
+            img_xyz = pts_xyz;
             img_xyz(:, 3) = boundary_z - (img_xyz(:, 3) - boundary_z);
         end
         
