@@ -12,54 +12,59 @@ classdef MirrorMirror < handle
     % Example usage:
     %
     %
-    % clear;
-    % clc;
-    %
-    % o = MirrorMirror();
-    % o.seabed_z = 12;
-    % o.seabed_c = 1650;
-    % o.seabed_rho = 1.9;
-    % o.target_xyz = [100, 100, 0]/sqrt(2);
-    %
-    % rcv_x = [ 0 11 ];
+    % clear
+    % clc
+    % 
+    % mm = MirrorMirror();                                % instantiate
+    % 
+    % mm.seabed_z = -12;                                  % environment
+    % mm.seabed_c = 1550;
+    % mm.seabed_rho = 1.8;
+    % 
+    % mm.target_xyz = [100, 100, 0]/sqrt(2);              % target
+    % 
+    % rcv_x = [ 0 11 ];                                   % receivers
     % rcv_x = rcv_x - mean(rcv_x);
     % Nr = length(rcv_x);
-    % o.receivers_xyz = [rcv_x(:), zeros(Nr, 1), ...
-    %     repmat(-o.seabed_z, Nr, 1)];
-    % o.bounce_count_thresh = 10;
-    %
+    % mm.receivers_xyz = [rcv_x(:), zeros(Nr, 1), repmat(mm.seabed_z, Nr, 1)];
+    % mm.bounce_count_thresh = 10;
+    % 
     % %%%% image finding
-    %
-    % o.generate_all_images();
-    %
+    % 
+    % mm.generate_all_images();
+    % 
     % %%%% image filtering
-    %
-    % o.retain_image_indices(...
-    %     o.breadcrumb_to_image_indices('', 'bs', 'bsbs'));
-    %
+    % 
+    % mm.retain_image_indices(...
+    %     mm.breadcrumb_to_image_indices('', 'bs', 'bsbs'));
+    % 
     % %%%% rendering
-    %
-    % fs = 102400;
-    % T = 2*max(o.images_dist(:))/o.water_c;
-    % freq = Freq.newByTime(fs, T, [eps 3000]);
-    %
-    % tf = o.get_transfer_function(freq.fr);
-    % [tft, tftax] = freq.synthTime(tf(:, 1), false, false, true);
-    %
+    % 
+    % fs = 1e6;                                           % sample freq
+    % T_max = 2.5*max(mm.images_dist(:))/mm.water_c;      % time axis ext.
+    % freq = Freq.newByTime(fs, T_max, [eps 3000]);       % frequencies
+    % 
+    % G = mm.get_transfer_function(freq.fr);              % xfer fcn.
+    % [g, t_g] = freq.synthTime(G(:,1), ...               % impulse resp.
+    %     false, false, true);
+    % 
     % figure(1); clf;
-    % plot(tftax*o.water_c, tft);
-    %
-    % % K = o.get_clairvoyant_csdm(freq.fr);
-    % K = o.get_clairvoyant_csdm_with_decoherence(freq.fr, .5, .9);
-    % cc = squeeze(K(1,2,:));
-    %
-    % [cct, tax] = freq.synthTime(cc, true, false, true);
-    %
+    % plot(t_g*mm.water_c, g);                            % plot imp. resp
+    % title('impulse response');
+    % xlabel('wave travel distance (m)');
+    % 
+    % K = mm.get_clairvoyant_csdm(freq.fr);               % build CSDM
+    % S = squeeze(K(1,2,:));
+    % [s, t_s] = freq.synthTime(S, true, false, true);    % xcorr t/series
+    % 
     % figure(2); clf;
-    % plot(tax*o.water_c, cct);
+    % plot(t_s*mm.water_c, s);                            % plot xcorr t/s.
     % xlim(3*diff(rcv_x)*[-1 1]);
     % set(gca, 'xtick', [-1 1]*diff(rcv_x));
     % set(gca, 'xgrid', 'on');
+    % title('cross correlation time series');
+    % xlabel('wave travel distance (m)');
+    %
     %
     %
     % Author: John Gebbie
@@ -82,11 +87,11 @@ classdef MirrorMirror < handle
         water_z = 0                     % Depth of water layer (m)
         water_c = 1500                  % Sound speed in water (m/s)
         water_rho = 1                   % Density of water (g/cm^3)
-        water_alpha = 1.00143834046906e-4 % Attenuation of water (dB/lambda)
+        water_alpha = 1.001438340469e-4 % Attenuation of water (dB/lambda)
         seabed_z = NaN                  % Depth of seabed layer (m)
-        seabed_c = 1800                 % Sound speed in seabed (m/s)
-        seabed_rho = 2                  % Density of seabed (g/cm^3)
-        seabed_alpha = 0.88             % Attenuation of seabed (dB/lambda)
+        seabed_c = 1550                 % Sound speed in seabed (m/s)
+        seabed_rho = 1.8                % Density of seabed (g/cm^3)
+        seabed_alpha = 0.2              % Attenuation of seabed (dB/lambda)
         
         % STOPPING CONDITIONS
         attenuation_thresh_dB = 100     % Max loss (rel. to 1st arrival)
@@ -278,12 +283,12 @@ classdef MirrorMirror < handle
             o.images_rcoeff(1, :) = ones(1, o.get_nelt());
             o.images_breadcrumb{1, 1} = '';
             
-            reflect_surface = o.target_xyz(3) ~= -o.water_z;
+            reflect_surface = o.target_xyz(3) ~= o.water_z;
             if reflect_surface
                 o.generate_all_images_helper(o.BREADCRUMB_SURFACE);
             end
             
-            reflect_seabed = o.target_xyz(3) ~= -o.seabed_z;
+            reflect_seabed = o.target_xyz(3) ~= o.seabed_z;
             if reflect_seabed
                 o.generate_all_images_helper(o.BREADCRUMB_BOTTOM);
             end
@@ -324,11 +329,11 @@ classdef MirrorMirror < handle
                 % next image coordinates
                 switch bndry
                     case o.BREADCRUMB_SURFACE
-                        boundary_z = -o.water_z;
+                        boundary_z = o.water_z;
                         nbnc_s = nbnc_s + 1;
                         bndry = o.BREADCRUMB_BOTTOM;
                     case o.BREADCRUMB_BOTTOM
-                        boundary_z = -o.seabed_z;
+                        boundary_z = o.seabed_z;
                         nbnc_b = nbnc_b + 1;
                         bndry = o.BREADCRUMB_SURFACE;
                 end
