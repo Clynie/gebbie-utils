@@ -1,6 +1,6 @@
 function [yi] = smooth_gaussian(x,y,xi,xsigma)
 % Simple Gaussian smoothing, interpolation, and extrapolation routine from
-% irregularly smapled input data points to any output data points.
+% irregularly sampled input data points to any output data points.
 % 1-dimensional.
 %
 % INPUT x : x-coordinate of input data
