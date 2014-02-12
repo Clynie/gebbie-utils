@@ -390,13 +390,11 @@ classdef MirrorMirror < handle
                 
                 % check if we've reached the attenuation threshold
                 if isfinite(o.attenuation_thresh_dB)
-                    spreading_loss_dB = 20*log10(D_multipath);
+                    spreading_loss_mpath_dB = 20*log10(D_multipath);
                     reflection_loss_dB = -20*log10(abs(curr_rc));
-                    spreading_loss_rel_dB = ...
-                        spreading_loss_dB - spreading_loss_dir_dB + ...
-                        reflection_loss_dB;
-                    if all(spreading_loss_rel_dB(:) > ...
-                            o.attenuation_thresh_dB(:))
+                    loss_rel_dB = spreading_loss_mpath_dB - ...
+                        spreading_loss_dir_dB + reflection_loss_dB;
+                    if all(loss_rel_dB(:) > o.attenuation_thresh_dB(:))
                         break;
                     end
                 end
